@@ -85,12 +85,13 @@ namespace manyears_ros
         ~ManyEarsNode();
 
     private:
-        void audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg);
+        int microphonesCount() const { return mic_defs_.size(); }
 
         bool parseParams(const ros::NodeHandle& np);
         bool parseConfigFile(const std::string& fn);
         void initPipeline();
 
+        void audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg);
     };
         
 }

@@ -1,5 +1,6 @@
 #include <manyears_ros/manyears_node.hpp>
 #include "manyears_config.hpp"
+#include "global_value.h" // ManyEars static consts.
 
 using namespace manyears_ros;
 
@@ -15,7 +16,7 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np)
     }
 
     ROS_INFO("Initializing ManyEars with %lu microphones...",
-             mic_defs_.size());
+             microphonesCount());
 
     initPipeline();
 
@@ -35,10 +36,6 @@ ManyEarsNode::~ManyEarsNode()
     trackedSourcesTerminate(     manyears_context_.myTrackedSources);
     separatedSourcesTerminate(   manyears_context_.mySeparatedSources);
     postfilteredSourcesTerminate(manyears_context_.myPostfilteredSources);
-}
-
-void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
-{
 }
 
 bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
@@ -136,7 +133,7 @@ bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
         mic_defs_.push_back(md);
     }
 
-    if (mic_defs_.size() < 2) {
+    if (microphonesCount() < 2) {
         ROS_ERROR("Less than two microphones were defined.");
         return false;
     }
@@ -184,6 +181,75 @@ void ManyEarsNode::initPipeline()
                             manyears_context_.myParameters);
     postfilteredSourcesInit(manyears_context_.myPostfilteredSources,
                             manyears_context_.myParameters);
+
+}
+
+void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
+{
+    // Fixed ManyEars input buffer size, in bytes:
+    static const int BUFFER_SIZE = manyears_global::samples_per_frame_s *
+                                   microphonesCount() *
+                                   sizeof(int16_t);
+
+    if (msg->channels != microphonesCount()) {
+        ROS_ERROR_THROTTLE(1.0,
+                           "Received an audio stream packet with %i channels, "
+                           "expected %i. Packet skipped.",
+                            microphonesCount(),
+                            msg->channels);
+        return;
+    }
+
+    if (msg->encoding != rt_audio_ros::AudioStream::SINT_16_PCM) {
+        ROS_ERROR_THROTTLE(1.0,
+                           "Received an audio stream packet not in "
+                           "SINT_16_PCM format. Packet skipped.");
+        return;
+    }
+
+    if (msg->is_bigendian != false) {
+        ROS_ERROR_THROTTLE(1.0,
+                           "Received an audio stream packet not in "
+                           "little endian. Packet skipped.");
+        return;
+    }
+
+    if (msg->sample_rate != manyears_global::sample_rate_s) {
+        ROS_ERROR_THROTTLE(1.0,
+                           "Received an audio stream packet sampled at "
+                           "%i Hz, expecting %i. Packet skipped.",
+                           msg->sample_rate,
+                           manyears_global::sample_rate_s);
+        return;
+    }
+    
+    if (msg->data.size() != BUFFER_SIZE) {
+        ROS_ERROR_THROTTLE(1.0,
+                           "Received an audio stream packet of size %i bytes, "
+                           "ManyEars expects a fixed buffer size of %i bytes. "
+                           "Packet skipped.",
+                           msg->data.size(),
+                           BUFFER_SIZE);
+        return;
+    }
+
+    // First, convert buffer to floats.
+    typedef std::vector<float>    FloatVec;
+    typedef std::vector<FloatVec> OutputBuffer;
+    OutputBuffer buffer_out = OutputBuffer(microphonesCount());
+    for (int i = 0; i < buffer_out.size(); ++i) {
+        buffer_out[i].resize(manyears_global::samples_per_frame_s);
+    }
+
+    const int16_t* buffer_in = reinterpret_cast<const int16_t*>(&(msg->data[0]));
+    int i = 0; // Incremented when buffer_in is read.
+    for (int s = 0; s < manyears_global::samples_per_frame_s; ++s) {
+        for (int c = 0; c < microphonesCount(); ++c) {
+            float v = float(buffer_in[i++]) / SHRT_MAX;
+            buffer_out[c][s] = v;
+        }
+    }
+
 
 }
 
