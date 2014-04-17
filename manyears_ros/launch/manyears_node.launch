@@ -1,0 +1,14 @@
+<launch>
+    <node name="manyears_node"
+          pkg="manyears_ros"
+          type="manyears_node_standalone"
+          output="screen">
+        <rosparam>
+            frame_id: micro_center_link
+            microphones:
+             - {pos: {x: 0.00, y:  0.05, z: 0.00}, gain: 1.0}
+             - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 1.0}
+        </rosparam>
+    </node>
+
+</launch>

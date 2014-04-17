@@ -91,7 +91,7 @@ set(manyearslib_PREFIX
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include
 #  LIBRARIES manyears_ros
 #  CATKIN_DEPENDS roscpp rt_audio_ros tf
 #  DEPENDS system_lib
@@ -105,6 +105,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
+  ${PROJECT_SOURCE_DIR}/include
   ${catkin_INCLUDE_DIRS}
   ${manyearslib_PREFIX}/dsplib
 )
@@ -119,22 +120,38 @@ add_executable(manyears_ros src/manyears_ros.cpp)
 add_executable(manyears_savestream src/manyears_savestream.cpp)
 add_executable(position_exploitation src/sound_position_exploitation.cpp)
 
+add_library(manyears_node STATIC
+    src/manyears_config.cpp
+    src/manyears_node.cpp
+)
+add_executable(manyears_node_standalone
+    src/manyears_node_standalone.cpp)
+
+
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(manyears_ros_node manyears_ros_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-add_dependencies(manyears_ros
+add_dependencies(manyears_node
   manyearslib # Making sure the external project is built first. 
 )
-target_link_libraries(manyears_ros
-  ${catkin_LIBRARIES}
+target_link_libraries(manyears_node
   ${manyearslib_PREFIX}/bin/libmanyears.a # WARNING: This aussumes we're on Linux.
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(manyears_ros
+  manyears_node
+  ${catkin_LIBRARIES}
 )
 target_link_libraries(manyears_savestream
   ${catkin_LIBRARIES}
 )
 target_link_libraries(position_exploitation
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(manyears_node_standalone
+  manyears_node 
   ${catkin_LIBRARIES}
 )
 
