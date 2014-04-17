@@ -4,7 +4,8 @@
 
 using namespace manyears_ros;
 
-ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np)
+ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np):
+    processed_frames_(0)
 {
     manyears_context_ = createEmptyOverallContext();
     ParametersLoadDefault(manyears_context_.myParameters);
@@ -321,6 +322,7 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
     manyears_msgs::ManyEarsTrackedAudioSource msg_out;
     msg_out.header.frame_id = frame_id_;
     msg_out.header.stamp    = getTimeStamp();
+    msg_out.sequence        = processed_frames_++;
 
     objTrackedSources* sources = manyears_context_.myTrackedSources;
     for (int i = 0; i < manyears_context_.myParameters->P_GEN_DYNSOURCES; ++i) {

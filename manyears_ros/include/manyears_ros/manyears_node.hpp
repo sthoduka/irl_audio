@@ -85,8 +85,9 @@ namespace manyears_ros
         float       gain_sep_;
         float       gain_pf_;
 
-        ros::Time processed_time_; // Estimated processed time from
-                                   // initialization.
+        ros::Time processed_time_;   // Estimated processed time from
+                                     // initialization.
+        int       processed_frames_; // Actual number of processed frames.
 
         struct objOverall manyears_context_;
 
