@@ -107,12 +107,18 @@ add_subdirectory(src/RTAudio)
 add_executable(rt_audio src/rt_audio.cpp)
 target_link_libraries(rt_audio RTAudioLib asound)
 
+add_executable(stream_player src/stream_player.cpp)
+
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-add_dependencies(rt_audio rt_audio_ros_generate_messages_cpp)
+add_dependencies(rt_audio      rt_audio_ros_generate_messages_cpp)
+add_dependencies(stream_player rt_audio_ros_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(rt_audio
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(stream_player
   ${catkin_LIBRARIES}
 )
 

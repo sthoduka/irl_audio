@@ -15,7 +15,7 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np)
         return;
     }
 
-    ROS_INFO("Initializing ManyEars with %lu microphones...",
+    ROS_INFO("Initializing ManyEars with %i microphones...",
              microphonesCount());
 
     initPipeline();
