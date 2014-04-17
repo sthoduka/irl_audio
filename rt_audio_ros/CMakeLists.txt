@@ -79,7 +79,7 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
+#  INCLUDE_DIRS include
 #  LIBRARIES rt_audio_ros
   CATKIN_DEPENDS roscpp
 #  DEPENDS asound
@@ -109,7 +109,7 @@ target_link_libraries(rt_audio RTAudioLib asound)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(rt_audio_ros_node rt_audio_ros_generate_messages_cpp)
+add_dependencies(rt_audio rt_audio_ros_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(rt_audio
