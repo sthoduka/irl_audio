@@ -250,6 +250,43 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
         }
     }
 
+    // Push all frames to ManyEars and process.
+    for (int i = 0; i < buffer_out.size(); ++i) {
+        preprocessorPushFrames(manyears_context_.myPreprocessor,
+                               buffer_out[i].size(),
+                               i);
+        preprocessorAddFrame(  manyears_context_.myPreprocessor,
+                               &(buffer_out[i][0]),
+                               i,
+                               buffer_out[i].size());
+    }
+    preprocessorProcessFrame(manyears_context_.myPreprocessor);
+    beamformerFindMaxima(    manyears_context_.myBeamformer,
+                             manyears_context_.myPreprocessor,
+                             manyears_context_.myPotentialSources);
+    mixtureUpdate(           manyears_context_.myMixture,
+                             manyears_context_.myTrackedSources,
+                             manyears_context_.myPotentialSources);
 
+    if (enable_sep_) {
+        gssProcess(       manyears_context_.myGSS,
+                          manyears_context_.myPreprocessor,
+                          manyears_context_.myTrackedSources,
+                          manyears_context_.mySeparatedSources);
+        postfilterProcess(manyears_context_.myPostfilter,
+                          manyears_context_.mySeparatedSources,
+                          manyears_context_.myPreprocessor,
+                          manyears_context_.myPostfilteredSources);
+        postprocessorProcessFrameSeparated(
+            manyears_context_.myPostprocessorSeparated,
+            manyears_context_.myTrackedSources,
+            manyears_context_.mySeparatedSources);
+        postprocessorProcessFramePostfiltered(
+            manyears_context_.myPostprocessorPostfiltered,
+            manyears_context_.myTrackedSources,
+            manyears_context_.myPostfilteredSources);
+    }
+
+    // TODO: output.
 }
 
