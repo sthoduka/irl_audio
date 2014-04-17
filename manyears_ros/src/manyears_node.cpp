@@ -6,6 +6,7 @@ using namespace manyears_ros;
 ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np)
 {
     manyears_context_ = createEmptyOverallContext();
+    ParametersLoadDefault(manyears_context_.myParameters);
 
     if (!parseParams(np)) {
         ROS_ERROR("Could not parse ManyEars parameters correctly, the node "
@@ -15,6 +16,9 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np)
 
     ROS_INFO("Initializing ManyEars with %lu microphones...",
              mic_defs_.size());
+
+    initPipeline();
+
     sub_audio_ = n.subscribe("audio_stream", 10, &ManyEarsNode::audioCB, this);
 }
 
@@ -24,6 +28,17 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 
 bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
 {
+    if (!np.hasParam("config_file")) {
+        ROS_ERROR("No 'config_file' parameter found.");
+        return false;
+    } else {
+        std::string config_fn;
+        np.getParam("config_file", config_fn);
+        if (!manyears_ros::parseConfigFile(manyears_context_, config_fn)) {
+            return false;
+        }
+    }
+
     if (!np.hasParam("microphones")) {
         ROS_ERROR("No 'microphones' parameter - cannot define array geometry.");
         return false;
@@ -111,18 +126,49 @@ bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
         return false;
     }
 
-    if (!np.hasParam("config_file")) {
-        ROS_ERROR("No 'config_file' parameter found, the node will not be "
-                  "initialized.");
-        return false;
-    } else {
-        std::string config_fn;
-        np.getParam("config_file", config_fn);
-        if (!manyears_ros::parseConfigFile(manyears_context_, config_fn)) {
-            return false;
-        }
-    }
+    np.param("instant_time", instant_time_, true);
 
     return true;
+}
+
+void ManyEarsNode::initPipeline()
+{
+    microphonesInit(manyears_context_.myMicrophones, mic_defs_.size());
+    for (int i = 0; i < mic_defs_.size(); ++i) {
+        const MicDef& md = mic_defs_[i];
+        microphonesAdd(manyears_context_.myMicrophones,
+                      i,
+                      md.pos[0],
+                      md.pos[1],
+                      md.pos[2],
+                      md.gain);
+    }
+
+    preprocessorInit(       manyears_context_.myPreprocessor,
+                            manyears_context_.myParameters,
+                            manyears_context_.myMicrophones);
+    beamformerInit(         manyears_context_.myBeamformer,
+                            manyears_context_.myParameters,
+                            manyears_context_.myMicrophones);
+    mixtureInit(            manyears_context_.myMixture,
+                            manyears_context_.myParameters);
+    gssInit(                manyears_context_.myGSS,
+                            manyears_context_.myParameters,
+                            manyears_context_.myMicrophones);
+    postfilterInit(         manyears_context_.myPostfilter,
+                            manyears_context_.myParameters);
+    postprocessorInit(      manyears_context_.myPostprocessorSeparated,
+                            manyears_context_.myParameters);
+    postprocessorInit(      manyears_context_.myPostprocessorPostfiltered,
+                            manyears_context_.myParameters);
+    potentialSourcesInit(   manyears_context_.myPotentialSources,
+                            manyears_context_.myParameters);
+    trackedSourcesInit(     manyears_context_.myTrackedSources,
+                            manyears_context_.myParameters);
+    separatedSourcesInit(   manyears_context_.mySeparatedSources,
+                            manyears_context_.myParameters);
+    postfilteredSourcesInit(manyears_context_.myPostfilteredSources,
+                            manyears_context_.myParameters);
+
 }
 

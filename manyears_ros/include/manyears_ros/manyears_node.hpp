@@ -4,7 +4,10 @@
 #include <manyears_msgs/ManyEarsTrackedAudioSource.h>
 #include <rt_audio_ros/AudioStream.h>
 #include <ros/ros.h>
-#include "overallContext.h"
+
+extern "C" {
+    #include "overallContext.h"
+}
 
 namespace manyears_ros
 {
@@ -14,15 +17,22 @@ namespace manyears_ros
     /// microphone geometry settings.
     ///
     /// Global parameters:
-    ///  - frame_id:    The name of the TF frame used for source localization.
-    ///                 Default: 'micro_center_link'.
-    ///  - microphones: Microphones geometry definition.
-    ///                 Mandatory, see details lower.
-    ///  - config_file: ManyEars config file full path.
-    ///                 Note that the microphone geometry parameters from this
-    ///                 file are ignored, as this node uses the 'microphones'
-    ///                 parameter instead.
-    ///                 Mandatory.
+    ///  - frame_id:     The name of the TF frame used for source localization.
+    ///                  Default: 'micro_center_link'.
+    ///  - microphones:  Microphones geometry definition.
+    ///                  Mandatory, see details lower.
+    ///  - config_file:  ManyEars config file full path.
+    ///                  Note that the microphone geometry parameters from this
+    ///                  file are ignored, as this node uses the 'microphones'
+    ///                  parameter instead.
+    ///                  Mandatory.
+    ///  - instant_time: If the stamp header field in the output should be
+    ///                  filled with the current time (ros::Time::now()) or an 
+    ///                  estimation of the elapsed time based on the number of
+    ///                  stream messages received.
+    ///                  Default: true.
+    ///  - enable_sep:   Enable separation of detected sources.
+    ///                  Default: true.
     ///
     /// Parameters for microphone geometry
     /// ----------------------------------
@@ -60,6 +70,9 @@ namespace manyears_ros
         };
         std::vector<MicDef> mic_defs_;
 
+        bool instant_time_;
+        bool enable_sep_;
+
         struct objOverall manyears_context_;
 
     public:
@@ -74,6 +87,8 @@ namespace manyears_ros
 
         bool parseParams(const ros::NodeHandle& np);
         bool parseConfigFile(const std::string& fn);
+        void initPipeline();
+
     };
         
 }

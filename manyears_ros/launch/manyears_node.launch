@@ -3,8 +3,10 @@
           pkg="manyears_ros"
           type="manyears_node_standalone"
           output="screen">
+        <param name="config_file" 
+               value="$(find manyears_ros)/data/small_cube.mes"/>
         <rosparam>
-            frame_id: micro_center_link
+            frame_id:    micro_center_link
             microphones:
              - {pos: {x: 0.00, y:  0.05, z: 0.00}, gain: 1.0}
              - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 1.0}
