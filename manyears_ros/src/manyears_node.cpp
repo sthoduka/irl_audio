@@ -21,6 +21,11 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np)
     initPipeline();
 
     sub_audio_ = n.subscribe("audio_stream", 10, &ManyEarsNode::audioCB, this);
+
+    pub_sources_ = n.advertise<manyears_msgs::ManyEarsTrackedAudioSource>(
+        "tracked_sources",
+        10);
+
 }
 
 ManyEarsNode::~ManyEarsNode()
@@ -138,7 +143,14 @@ bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
         return false;
     }
 
-    np.param("instant_time", instant_time_, true);
+    np.param("instant_time", instant_time_,                             true);
+    np.param("frame_id",     frame_id_,     std::string("micro_center_link"));
+
+    double gain_sep, gain_pf;
+    np.param("gain_sep", gain_sep, 1.0);
+    np.param("gain_pf", gain_pf, 1.0);
+    gain_sep_ = gain_sep;
+    gain_pf_  = gain_pf;
 
     return true;
 }
@@ -184,6 +196,15 @@ void ManyEarsNode::initPipeline()
 
 }
 
+ros::Time ManyEarsNode::getTimeStamp() const
+{
+    if (instant_time_) {
+        return ros::Time::now();
+    } else {
+        return processed_time_;
+    }
+}
+
 void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 {
     // Fixed ManyEars input buffer size, in bytes:
@@ -191,6 +212,15 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
                                    microphonesCount() *
                                    sizeof(int16_t);
 
+    // NOTE: Always calculate processed time, even if frames are skipped:
+    if (processed_time_.isZero()) {
+        processed_time_ = ros::Time::now();
+    } else {
+        processed_time_ += ros::Duration(
+            float(manyears_global::samples_per_frame_s) / 
+            float(manyears_global::sample_rate_s));
+    }
+   
     if (msg->channels != microphonesCount()) {
         ROS_ERROR_THROTTLE(1.0,
                            "Received an audio stream packet with %i channels, "
@@ -287,6 +317,59 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
             manyears_context_.myPostfilteredSources);
     }
 
-    // TODO: output.
+    // Output formatting.
+    manyears_msgs::ManyEarsTrackedAudioSource msg_out;
+    msg_out.header.frame_id = frame_id_;
+    msg_out.header.stamp    = getTimeStamp();
+
+    objTrackedSources* sources = manyears_context_.myTrackedSources;
+    for (int i = 0; i < manyears_context_.myParameters->P_GEN_DYNSOURCES; ++i) {
+        int src_id = trackedSourcesGetID(sources, i);
+        if (src_id != -1) {
+            int last_s = msg_out.tracked_sources.size();
+            msg_out.tracked_sources.resize(last_s + 1);
+            manyears_msgs::SourceInfo& src = msg_out.tracked_sources[last_s];
+
+            src.source_id = src_id; 
+
+            double& px = src.source_pos.x;
+            double& py = src.source_pos.y;
+            double& pz = src.source_pos.z;
+            px = trackedSourcesGetX(sources, i);
+            py = trackedSourcesGetY(sources, i);
+            pz = trackedSourcesGetZ(sources, i);
+
+            src.longitude = atan2(py, px)                       * 180.0 / M_PI;
+            src.latitude  = asin( pz / (px*px + py*py + pz*pz)) * 180.0 / M_PI;
+
+            if (enable_sep_) {
+                static const int SIZE = GLOBAL_FRAMESIZE * GLOBAL_OVERLAP;
+
+                src.separation_data.resize(SIZE);
+                postprocessorExtractHop(
+                    manyears_context_.myPostprocessorSeparated,
+                    src.source_id,
+                    &(src.separation_data[0]));
+                src.postfiltered_data.resize(SIZE);
+                postprocessorExtractHop(
+                    manyears_context_.myPostprocessorPostfiltered,
+                    src.source_id,
+                    &(src.postfiltered_data[0]));
+
+                // Output gain.
+                for (int j = 0; j < SIZE; ++j) {
+                    src.separation_data[j]   *= gain_sep_;
+                    src.postfiltered_data[j] *= gain_pf_;
+                }
+            }
+
+            src.source_probability = potentialSourcesGetProbability(
+                manyears_context_.myPotentialSources,
+                i);
+        }
+    }
+
+    pub_sources_.publish(msg_out);
+
 }
 

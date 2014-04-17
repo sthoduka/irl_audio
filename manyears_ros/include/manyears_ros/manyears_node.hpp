@@ -16,6 +16,10 @@ namespace manyears_ros
     /// Based on the old manyears_ros standalone node, but with more flexible
     /// microphone geometry settings.
     ///
+    /// Topics:
+    ///  - audio_stream:    Stream input.
+    ///  - tracked_sources: Process output.
+    ///
     /// Global parameters:
     ///  - frame_id:     The name of the TF frame used for source localization.
     ///                  Default: 'micro_center_link'.
@@ -33,6 +37,10 @@ namespace manyears_ros
     ///                  Default: true.
     ///  - enable_sep:   Enable separation of detected sources.
     ///                  Default: true.
+    ///  - gain_sep:     Output gain on separated data.
+    ///                  Default: 1.0.
+    ///  - gain_pf:      Output gain on postfiltered data.
+    ///                  Default: 1.0.
     ///
     /// Parameters for microphone geometry
     /// ----------------------------------
@@ -54,6 +62,7 @@ namespace manyears_ros
     private:
 
         ros::Subscriber sub_audio_;
+        ros::Publisher  pub_sources_;
 
         /// \brief Internal microphone definition structure used when parsing
         /// parameters.
@@ -70,8 +79,14 @@ namespace manyears_ros
         };
         std::vector<MicDef> mic_defs_;
 
-        bool instant_time_;
-        bool enable_sep_;
+        std::string frame_id_;
+        bool        instant_time_;
+        bool        enable_sep_;
+        float       gain_sep_;
+        float       gain_pf_;
+
+        ros::Time processed_time_; // Estimated processed time from
+                                   // initialization.
 
         struct objOverall manyears_context_;
 
@@ -85,7 +100,8 @@ namespace manyears_ros
         ~ManyEarsNode();
 
     private:
-        int microphonesCount() const { return mic_defs_.size(); }
+        int       microphonesCount() const { return mic_defs_.size(); }
+        ros::Time getTimeStamp()     const;
 
         bool parseParams(const ros::NodeHandle& np);
         bool parseConfigFile(const std::string& fn);
