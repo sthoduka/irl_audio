@@ -22,6 +22,21 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np)
     sub_audio_ = n.subscribe("audio_stream", 10, &ManyEarsNode::audioCB, this);
 }
 
+ManyEarsNode::~ManyEarsNode()
+{
+    preprocessorTerminate(       manyears_context_.myPreprocessor);
+    beamformerTerminate(         manyears_context_.myBeamformer);
+    mixtureTerminate(            manyears_context_.myMixture);
+    gssTerminate(                manyears_context_.myGSS);
+    postfilterTerminate(         manyears_context_.myPostfilter);
+    postprocessorTerminate(      manyears_context_.myPostprocessorSeparated);
+    postprocessorTerminate(      manyears_context_.myPostprocessorPostfiltered);
+    potentialSourcesTerminate(   manyears_context_.myPotentialSources);
+    trackedSourcesTerminate(     manyears_context_.myTrackedSources);
+    separatedSourcesTerminate(   manyears_context_.mySeparatedSources);
+    postfilteredSourcesTerminate(manyears_context_.myPostfilteredSources);
+}
+
 void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 {
 }

@@ -82,6 +82,8 @@ namespace manyears_ros
         /// \param np Node handle for parameters.
         ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np);
 
+        ~ManyEarsNode();
+
     private:
         void audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg);
 
