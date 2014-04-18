@@ -14,10 +14,7 @@ namespace {
 
     void writeByteStream(const std::vector<unsigned char>& data)
     {
-        std::vector<unsigned char>::const_iterator i = data.begin();
-        while (i != data.end()) {
-            std::cout << *(i++);
-        }
+        std::cout.write((char*)&(data[0]), data.size());
     }
 
     void audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)

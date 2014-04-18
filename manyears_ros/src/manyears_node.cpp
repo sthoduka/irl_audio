@@ -1,6 +1,7 @@
 #include <manyears_ros/manyears_node.hpp>
 #include "manyears_config.hpp"
 #include "global_value.h" // ManyEars static consts.
+#include <inttypes.h>
 
 using namespace manyears_ros;
 
@@ -21,13 +22,13 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np):
 
     initPipeline();
 
-    sub_audio_ = n.subscribe("audio_stream", 10, &ManyEarsNode::audioCB, this);
+    sub_audio_ = n.subscribe("audio_stream", 1000, &ManyEarsNode::audioCB, this);
 
     pub_sources_ = n.advertise<manyears_msgs::ManyEarsTrackedAudioSource>(
         "tracked_sources",
         10);
 
-    pub_stream_  = np.advertise<rt_audio_ros::AudioStream>("stream", 10);
+    pub_stream_  = np.advertise<rt_audio_ros::AudioStream>("stream", 100);
 
 }
 
@@ -211,9 +212,10 @@ ros::Time ManyEarsNode::getTimeStamp() const
 void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 {
     // Fixed ManyEars input buffer size, in bytes:
-    static const int BUFFER_SIZE = manyears_global::samples_per_frame_s *
-                                   microphonesCount() *
-                                   sizeof(int16_t);
+    const int total_samples_count = manyears_global::samples_per_frame_s *
+                                    microphonesCount();
+    const int buffer_size         = total_samples_count *
+                                    sizeof(int16_t);
 
     // NOTE: Always calculate processed time, even if frames are skipped:
     if (processed_time_.isZero()) {
@@ -256,13 +258,13 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
         return;
     }
     
-    if (msg->data.size() != BUFFER_SIZE) {
+    if (msg->data.size() != buffer_size) {
         ROS_ERROR_THROTTLE(1.0,
                            "Received an audio stream packet of size %i bytes, "
                            "ManyEars expects a fixed buffer size of %i bytes. "
                            "Packet skipped.",
                            msg->data.size(),
-                           BUFFER_SIZE);
+                           buffer_size);
         return;
     }
 
@@ -274,21 +276,20 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
         buffer_out[i].resize(manyears_global::samples_per_frame_s);
     }
 
-    bool output_flat_stream = pub_stream_.getNumSubscribers() > 0;
-    FloatVec buffer_out_flat;
-    if (output_flat_stream) {
-        buffer_out_flat.reserve(BUFFER_SIZE / sizeof(int16_t));
-    }
 
-    const int16_t* buffer_in = reinterpret_cast<const int16_t*>(&(msg->data[0]));
-    int i = 0; // Incremented when buffer_in is read.
+    // First, do a straight short -> float conversion.
+    const int16_t* buffer_in = 
+        reinterpret_cast<const int16_t*>(&(msg->data[0]));
+    FloatVec buffer_out_flat;
+    buffer_out_flat.resize(total_samples_count);
+    for (int i = 0; i < buffer_out_flat.size(); ++i) {
+        buffer_out_flat[i] = float(buffer_in[i]) / SHRT_MAX;
+    }
+    // Then, split in separate channels for ManyEars.
+    int i = 0; // Incremented when buffer_out_flat is read.
     for (int s = 0; s < manyears_global::samples_per_frame_s; ++s) {
         for (int c = 0; c < microphonesCount(); ++c) {
-            float v = float(buffer_in[i++]) / SHRT_MAX;
-            if (output_flat_stream) {
-                buffer_out_flat.push_back(v);
-            }
-            buffer_out[c][s] = v;
+            buffer_out[c][s] = buffer_out_flat[i++];
         }
     }
 
@@ -384,14 +385,14 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 
     pub_sources_.publish(msg_out);
 
-    if (output_flat_stream) {
+    if (pub_stream_.getNumSubscribers() > 0) {
         rt_audio_ros::AudioStream flat_stream;
         flat_stream.header      = msg_out.header;
         flat_stream.encoding    = rt_audio_ros::AudioStream::FLOAT_32;
         flat_stream.channels    = msg->channels;
         flat_stream.sample_rate = msg->sample_rate;
 
-        flat_stream.data.resize(buffer_out_flat.size() * sizeof(float));
+        flat_stream.data.resize(total_samples_count * sizeof(float));
         std::copy(buffer_out_flat.begin(),
                   buffer_out_flat.end(),
                   (float*)(&(flat_stream.data[0])));
