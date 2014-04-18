@@ -330,6 +330,13 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
             manyears_context_.myPostfilteredSources);
     }
 
+    // Debug output.
+    const objBeamformer*       bf    = manyears_context_.myBeamformer;
+    const objPotentialSources* psrcs = manyears_context_.myPotentialSources;
+    ROS_DEBUG_THROTTLE(0.2,
+                       "P_0: %f",
+                       psrcs->sourcesProbability[0]);
+
     // Output formatting.
     manyears_msgs::ManyEarsTrackedAudioSource msg_out;
     msg_out.header.frame_id = frame_id_;
