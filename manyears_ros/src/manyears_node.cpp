@@ -228,8 +228,8 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
         ROS_ERROR_THROTTLE(1.0,
                            "Received an audio stream packet with %i channels, "
                            "expected %i. Packet skipped.",
-                            microphonesCount(),
-                            msg->channels);
+                            msg->channels,
+                            microphonesCount());
         return;
     }
 

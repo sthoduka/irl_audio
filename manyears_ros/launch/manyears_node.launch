@@ -10,7 +10,20 @@
             microphones:
              - {pos: {x: 0.00, y:  0.05, z: 0.00}, gain: 1.0}
              - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 1.0}
+             - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 0.0}
+             - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 0.0}
+             - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 0.0}
+             - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 0.0}
+             - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 0.0}
+             - {pos: {x: 0.00, y: -0.05, z: 0.00}, gain: 0.0}
         </rosparam>
     </node>
+
+    <!-- TEMP -->
+    <node name="micro_tf" 
+          pkg="tf" 
+          type="static_transform_publisher"
+          args="0 0 0 0 0 0 1 base_link micro_center_link 10"
+    />
 
 </launch>
