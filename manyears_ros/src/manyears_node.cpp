@@ -27,6 +27,8 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np):
         "tracked_sources",
         10);
 
+    pub_stream_  = np.advertise<rt_audio_ros::AudioStream>("stream", 10);
+
 }
 
 ManyEarsNode::~ManyEarsNode()
@@ -272,11 +274,20 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
         buffer_out[i].resize(manyears_global::samples_per_frame_s);
     }
 
+    bool output_flat_stream = pub_stream_.getNumSubscribers() > 0;
+    FloatVec buffer_out_flat;
+    if (output_flat_stream) {
+        buffer_out_flat.reserve(BUFFER_SIZE / sizeof(int16_t));
+    }
+
     const int16_t* buffer_in = reinterpret_cast<const int16_t*>(&(msg->data[0]));
     int i = 0; // Incremented when buffer_in is read.
     for (int s = 0; s < manyears_global::samples_per_frame_s; ++s) {
         for (int c = 0; c < microphonesCount(); ++c) {
             float v = float(buffer_in[i++]) / SHRT_MAX;
+            if (output_flat_stream) {
+                buffer_out_flat.push_back(v);
+            }
             buffer_out[c][s] = v;
         }
     }
@@ -373,5 +384,19 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 
     pub_sources_.publish(msg_out);
 
+    if (output_flat_stream) {
+        rt_audio_ros::AudioStream flat_stream;
+        flat_stream.header      = msg_out.header;
+        flat_stream.encoding    = rt_audio_ros::AudioStream::FLOAT_32;
+        flat_stream.channels    = msg->channels;
+        flat_stream.sample_rate = msg->sample_rate;
+
+        flat_stream.data.resize(buffer_out_flat.size() * sizeof(float));
+        std::copy(buffer_out_flat.begin(),
+                  buffer_out_flat.end(),
+                  (float*)(&(flat_stream.data[0])));
+
+        pub_stream_.publish(flat_stream);
+    }
 }
 

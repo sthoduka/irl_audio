@@ -19,6 +19,7 @@ namespace manyears_ros
     /// Topics:
     ///  - audio_stream:    Stream input.
     ///  - tracked_sources: Process output.
+    ///  - ~stream:         Converted float32 stream for diagnostic purposes.
     ///
     /// Global parameters:
     ///  - frame_id:     The name of the TF frame used for source localization.
@@ -63,6 +64,7 @@ namespace manyears_ros
 
         ros::Subscriber sub_audio_;
         ros::Publisher  pub_sources_;
+        ros::Publisher  pub_stream_;
 
         /// \brief Internal microphone definition structure used when parsing
         /// parameters.
