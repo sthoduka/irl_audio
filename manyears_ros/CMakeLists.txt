@@ -116,8 +116,8 @@ include_directories(
 # )
 
 ## Declare a cpp executable
-add_executable(manyears_ros src/manyears_ros.cpp)
-add_executable(manyears_savestream src/manyears_savestream.cpp)
+add_executable(manyears_ros          src/manyears_ros.cpp)
+add_executable(manyears_savestream   src/manyears_savestream.cpp)
 add_executable(position_exploitation src/sound_position_exploitation.cpp)
 
 add_library(manyears_node STATIC
@@ -130,7 +130,10 @@ add_executable(manyears_node_standalone
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(manyears_ros_node manyears_ros_generate_messages_cpp)
+add_dependencies(manyears_ros          manyears_msgs_generate_messages_cpp)
+add_dependencies(manyears_node         manyears_msgs_generate_messages_cpp)
+add_dependencies(manyears_savestream   manyears_msgs_generate_messages_cpp)
+add_dependencies(position_exploitation manyears_msgs_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 add_dependencies(manyears_node
