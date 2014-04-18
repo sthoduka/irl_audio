@@ -19,6 +19,10 @@
         </rosparam>
     </node>
 
+    <node name="sound_pose" pkg="manyears_ros" type="position_exploitation">
+        <remap from="/sources_info" to="/tracked_sources"/>
+    </node>
+
     <!-- TEMP -->
     <node name="micro_tf" 
           pkg="tf" 
