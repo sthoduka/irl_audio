@@ -18,10 +18,11 @@ int main(int argc, char** argv)
 
     ros::NodeHandle n;
     ros::Publisher  pub_stream = 
-        n.advertise<rt_audio_ros::AudioStream>("audio_stream", 10);
+        n.advertise<rt_audio_ros::AudioStream>("audio_stream", 1000);
 
 
-    const int BUFFER_SIZE = 512 * nb_channels * sizeof(int16_t);
+    const int SAMPLES_COUNT = 512;
+    const int BUFFER_SIZE   = SAMPLES_COUNT * nb_channels * sizeof(int16_t);
     rt_audio_ros::AudioStream msg;
     msg.encoding     = rt_audio_ros::AudioStream::SINT_16_PCM;
     msg.is_bigendian = false;
@@ -30,8 +31,12 @@ int main(int argc, char** argv)
     msg.data.resize(BUFFER_SIZE);
     unsigned char* buffer = &(msg.data[0]);
 
-    ros::Rate rate(msg.sample_rate / (512 * nb_channels));
+    ros::Rate rate(msg.sample_rate / SAMPLES_COUNT);
     while (ros::ok() && !std::cin.read((char*)buffer, BUFFER_SIZE).eof()) {
+        if (std::cin.gcount() != BUFFER_SIZE) {
+            std::cerr << "Warning: could not get full buffer size for std::cin."
+                      << std::endl;
+        }
         msg.header.stamp = ros::Time::now();
         pub_stream.publish(msg);
         rate.sleep();
