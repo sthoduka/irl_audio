@@ -147,8 +147,9 @@ bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
         return false;
     }
 
-    np.param("instant_time", instant_time_,                             true);
     np.param("frame_id",     frame_id_,     std::string("micro_center_link"));
+    np.param("instant_time", instant_time_,                             true);
+    np.param("planar_mode",  planar_mode_,                             false);
 
     double gain_sep, gain_pf;
     np.param("gain_sep", gain_sep, 1.0);
@@ -217,6 +218,10 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
     const int buffer_size         = total_samples_count *
                                     sizeof(int16_t);
 
+    // An upsample test is performed later to see if it's accurate.
+    const int upsample_rate       = manyears_global::sample_rate_s /
+                                    msg->sample_rate;
+
     // NOTE: Always calculate processed time, even if frames are skipped:
     if (processed_time_.isZero()) {
         processed_time_ = ros::Time::now();
@@ -250,14 +255,23 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
     }
 
     if (msg->sample_rate != manyears_global::sample_rate_s) {
-        ROS_ERROR_THROTTLE(1.0,
-                           "Received an audio stream packet sampled at "
-                           "%i Hz, expecting %i. Packet skipped.",
-                           msg->sample_rate,
-                           manyears_global::sample_rate_s);
-        return;
+        // Check if a straight upsample is possible, otherwise skip.
+        if ((manyears_global::sample_rate_s % msg->sample_rate) != 0) {
+            ROS_ERROR_THROTTLE(1.0,
+                               "Received an audio stream packet sampled at "
+                               "%i Hz, expecting %i. Packet skipped.",
+                               msg->sample_rate,
+                               manyears_global::sample_rate_s);
+            return;
+        } else {
+            ROS_WARN_ONCE("The input audio stream will be upsampled by a "
+                          "factor of %i.",
+                          upsample_rate);
+        }
     }
     
+    // TODO: Remove this test, accumulate buffers until the correct count is
+    // achieved and send to ManyEars.
     if (msg->data.size() != buffer_size) {
         ROS_ERROR_THROTTLE(1.0,
                            "Received an audio stream packet of size %i bytes, "
@@ -268,40 +282,53 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
         return;
     }
 
-    // First, convert buffer to floats.
-    typedef std::vector<float>    FloatVec;
-    typedef std::vector<FloatVec> OutputBuffer;
-    OutputBuffer buffer_out = OutputBuffer(microphonesCount());
-    for (int i = 0; i < buffer_out.size(); ++i) {
-        buffer_out[i].resize(manyears_global::samples_per_frame_s);
-    }
-
-
     // First, do a straight short -> float conversion.
-    const int16_t* buffer_in = 
+    const int      buffer_in_size = msg->data.size() / sizeof(int16_t);
+    const int16_t* buffer_in      = 
         reinterpret_cast<const int16_t*>(&(msg->data[0]));
-    FloatVec buffer_out_flat;
-    buffer_out_flat.resize(total_samples_count);
-    for (int i = 0; i < buffer_out_flat.size(); ++i) {
-        buffer_out_flat[i] = float(buffer_in[i]) / SHRT_MAX;
-    }
-    // Then, split in separate channels for ManyEars.
-    int i = 0; // Incremented when buffer_out_flat is read.
-    for (int s = 0; s < manyears_global::samples_per_frame_s; ++s) {
-        for (int c = 0; c < microphonesCount(); ++c) {
-            buffer_out[c][s] = buffer_out_flat[i++];
+
+    int i = 0; // Input index.
+    while (i < buffer_in_size) {
+        float v = float(buffer_in[i++]) / SHRT_MAX;
+        // TODO: HERE!
+        for (int j = 0; j < upsample_rate; ++j) {
+            buffer_flat_.push_back(v);
+            if (buffer_flat_.size() == total_samples_count) {
+                process();
+                // Clear the intermediary buffer for the next round.
+                buffer_flat_.clear();
+            }
         }
     }
 
+}
+
+void ManyEarsNode::process()
+{
+    typedef std::vector<FloatVec> MESplitBuffer; // ManyEars input buffer.
+    MESplitBuffer buffer = MESplitBuffer(microphonesCount());
+    for (int i = 0; i < buffer.size(); ++i) {
+        buffer[i].resize(manyears_global::samples_per_frame_s);
+    }
+        
+    // Split in separate channels for ManyEars.
+    int i = 0; // Incremented when buffer_flat_ read.
+    for (int s = 0; s < manyears_global::samples_per_frame_s; ++s) {
+        for (int c = 0; c < microphonesCount(); ++c) {
+            buffer[c][s] = buffer_flat_[i++];
+        }
+    }
+
+
     // Push all frames to ManyEars and process.
-    for (int i = 0; i < buffer_out.size(); ++i) {
+    for (int i = 0; i < buffer.size(); ++i) {
         preprocessorPushFrames(manyears_context_.myPreprocessor,
-                               buffer_out[i].size(),
+                               buffer[i].size(),
                                i);
         preprocessorAddFrame(  manyears_context_.myPreprocessor,
-                               &(buffer_out[i][0]),
+                               &(buffer[i][0]),
                                i,
-                               buffer_out[i].size());
+                               buffer[i].size());
     }
     preprocessorProcessFrame(manyears_context_.myPreprocessor);
     beamformerFindMaxima(    manyears_context_.myBeamformer,
@@ -360,8 +387,19 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
             py = trackedSourcesGetY(sources, i);
             pz = trackedSourcesGetZ(sources, i);
 
-            src.longitude = atan2(py, px)                       * 180.0 / M_PI;
-            src.latitude  = asin( pz / (px*px + py*py + pz*pz)) * 180.0 / M_PI;
+            double long_rad = atan2(py, px);
+            double lat_rad  = asin( pz / (px*px + py*py + pz*pz));
+
+            src.longitude = long_rad * 180.0 / M_PI;
+            src.latitude  = lat_rad  * 180.0 / M_PI;
+
+            if (planar_mode_) {
+                // Re-generate postion based on longitude only:
+                px = cos(long_rad);
+                py = sin(long_rad);
+                pz = 0.0;
+                src.latitude = 0.0;
+            }
 
             if (enable_sep_) {
                 static const int SIZE = GLOBAL_FRAMESIZE * GLOBAL_OVERLAP;
@@ -396,12 +434,12 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
         rt_audio_ros::AudioStream flat_stream;
         flat_stream.header      = msg_out.header;
         flat_stream.encoding    = rt_audio_ros::AudioStream::FLOAT_32;
-        flat_stream.channels    = msg->channels;
-        flat_stream.sample_rate = msg->sample_rate;
+        flat_stream.channels    = microphonesCount();
+        flat_stream.sample_rate = manyears_global::sample_rate_s;
 
-        flat_stream.data.resize(total_samples_count * sizeof(float));
-        std::copy(buffer_out_flat.begin(),
-                  buffer_out_flat.end(),
+        flat_stream.data.resize(buffer_flat_.size() * sizeof(float));
+        std::copy(buffer_flat_.begin(),
+                  buffer_flat_.end(),
                   (float*)(&(flat_stream.data[0])));
 
         pub_stream_.publish(flat_stream);

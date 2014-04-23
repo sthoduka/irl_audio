@@ -66,22 +66,26 @@ namespace rt_audio_ros
 			for (unsigned int indexDevice = 0; indexDevice < numberDevices; indexDevice++ )
 			{
 				info = rtaudio_->getDeviceInfo(indexDevice);
-				if ( info.probed == true )
-				{
-                                        ROS_INFO_STREAM( "Card " << indexDevice << " " << info.name.c_str() << 
-							". Inputs : " << info.inputChannels );
-					
-					// Take the device with enough channels AND with the good name hint
-                                        if(( info.inputChannels >= nb_microphones_)
-						&& ( std::count(info.sampleRates.begin(), // If sample is supported
-							info.sampleRates.end(), sample_rate_) > 0 )
-						&& boost::contains( info.name, card_name_hint_ ) )
-                                        {
-						selected_device = indexDevice;
-                                                break;
-                                        }
-				}
-			}
+                if ( info.probed == true )
+                {
+                    ROS_INFO_STREAM( "Card " << indexDevice << " " << info.name.c_str() << 
+                            ". Inputs : " << info.inputChannels );
+
+                    ROS_INFO_STREAM("sp rates: ");
+                    for (int i = 0; i < info.sampleRates.size(); ++i) {
+                        ROS_INFO_STREAM(info.sampleRates[i] << " ");
+                    }
+                    // Take the device with enough channels AND with the good name hint
+                    if(( info.inputChannels >= nb_microphones_)
+                            && ( std::count(info.sampleRates.begin(), // If sample is supported
+                                    info.sampleRates.end(), sample_rate_) > 0 )
+                            && boost::contains( info.name, card_name_hint_ ) )
+                    {
+                        selected_device = indexDevice;
+                        break;
+                    }
+                }
+            }
 
 			RtAudio::StreamParameters iparameters;
 			//Take the last device for the input (normally the PCI sound card)

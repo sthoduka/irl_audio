@@ -36,6 +36,9 @@ namespace manyears_ros
     ///                  estimation of the elapsed time based on the number of
     ///                  stream messages received.
     ///                  Default: true.
+    ///  - planar_mode:  Only produce poses on a single plane (XY, discards
+    ///                  latitude info).
+    ///                  Default: false.
     ///  - enable_sep:   Enable separation of detected sources.
     ///                  Default: true.
     ///  - gain_sep:     Output gain on separated data.
@@ -83,6 +86,7 @@ namespace manyears_ros
 
         std::string frame_id_;
         bool        instant_time_;
+        bool        planar_mode_;
         bool        enable_sep_;
         float       gain_sep_;
         float       gain_pf_;
@@ -90,6 +94,13 @@ namespace manyears_ros
         ros::Time processed_time_;   // Estimated processed time from
                                      // initialization.
         int       processed_frames_; // Actual number of processed frames.
+
+        typedef std::vector<float> FloatVec;     // Internal flat buffer.
+        FloatVec                   buffer_flat_; // Will contain a flat 
+                                                 // ManyEars-sized audio buffer
+                                                 // ready to be splitted and
+                                                 // sent to the library.
+
 
         struct objOverall manyears_context_;
 
@@ -111,6 +122,7 @@ namespace manyears_ros
         void initPipeline();
 
         void audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg);
+        void process();
     };
         
 }
