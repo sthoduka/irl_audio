@@ -39,6 +39,9 @@ namespace manyears_ros
     ///  - planar_mode:  Only produce poses on a single plane (XY, discards
     ///                  latitude info).
     ///                  Default: false.
+    ///  - pre_gain:     Uniform gain applied at input (before sending it to 
+    ///                  ManyEars).
+    ///                  Default: 1.0.
     ///  - enable_sep:   Enable separation of detected sources.
     ///                  Default: true.
     ///  - gain_sep:     Output gain on separated data.
@@ -87,6 +90,7 @@ namespace manyears_ros
         std::string frame_id_;
         bool        instant_time_;
         bool        planar_mode_;
+        float       pre_gain_;
         bool        enable_sep_;
         float       gain_sep_;
         float       gain_pf_;

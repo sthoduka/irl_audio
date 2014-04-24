@@ -17,12 +17,13 @@
         <rosparam>
             frame_id:    micro_center_link
             planar_mode: true
+            pre_gain:    8.0
             # Geometric configuration for a Microsoft Kinect:
             microphones:
-             - {pos: {x: 0.00, y: -0.113, z: 0.00}, gain: 15.0}
-             - {pos: {x: 0.00, y:  0.036, z: 0.00}, gain: 15.0}
-             - {pos: {x: 0.00, y:  0.076, z: 0.00}, gain: 15.0}
-             - {pos: {x: 0.00, y:  0.113, z: 0.00}, gain: 15.0}
+             - {pos: {x: 0.00, y: -0.113, z: 0.00}, gain: 1.0}
+             - {pos: {x: 0.00, y:  0.036, z: 0.00}, gain: 1.0}
+             - {pos: {x: 0.00, y:  0.076, z: 0.00}, gain: 1.0}
+             - {pos: {x: 0.00, y:  0.113, z: 0.00}, gain: 1.0}
         </rosparam>
     </node>
 

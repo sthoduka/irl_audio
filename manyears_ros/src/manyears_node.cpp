@@ -205,6 +205,9 @@ bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
     np.param("frame_id",     frame_id_,     std::string("micro_center_link"));
     np.param("instant_time", instant_time_,                             true);
     np.param("planar_mode",  planar_mode_,                             false);
+    double pg;
+    np.param("pre_gain",     pg,                                         1.0);
+    pre_gain_ = pg;
 
     double gain_sep, gain_pf;
     np.param("gain_sep", gain_sep, 1.0);
@@ -354,8 +357,7 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 
     int i = 0; // Input index.
     while (i < buffer_in_size) {
-        float v = float(buffer_in[i++]) / SHRT_MAX;
-        // TODO: HERE!
+        float v = pre_gain_ * float(buffer_in[i++]) / SHRT_MAX;
         for (int j = 0; j < upsample_rate; ++j) {
             buffer_flat_.push_back(v);
             if (buffer_flat_.size() == total_samples_count) {
