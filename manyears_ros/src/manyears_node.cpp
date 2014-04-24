@@ -5,6 +5,61 @@
 
 using namespace manyears_ros;
 
+namespace {
+
+    /// \brief Replacement function for beamformer initialization that uses an
+    /// half-circle arc instead of a full sphere.
+    void beamformerArcInit(struct objBeamformer*    myBeamformer,
+                           struct ParametersStruct* myParameters, 
+                           struct objMicrophones*   myMicrophones)
+    {
+        // Copied directly from ManyEars lib source with a few formatting
+        // changes to fit the current source file.
+
+        myBeamformer->BF_SPHERENBLEVELS = GLOBAL_SPHERE_NUMBERLEVELS;
+        myBeamformer->BF_MAXSOURCES     = myParameters->P_BF_MAXSOURCES;
+        myBeamformer->BF_FILTERRANGE    = myParameters->P_BF_FILTERRANGE;
+        myBeamformer->BF_RESETRANGE     = myParameters->P_BF_RESETRANGE;
+        myBeamformer->BF_ET             = myParameters->P_BF_ET;
+
+        myBeamformer->myMicrophones = 
+            (struct objMicrophones*) malloc(sizeof(struct objMicrophones));
+        microphonesClone(myMicrophones, myBeamformer->myMicrophones);
+
+        myBeamformer->mySphere = 
+            (struct objSphere*) malloc(sizeof(struct objSphere));
+        sphereArcInit(myBeamformer->mySphere, 
+                      -90,
+                      90,
+                      60);
+
+        myBeamformer->myDelays = 
+            (struct objDelays*) malloc(sizeof(struct objDelays));
+        delaysInit(myBeamformer->myDelays,
+                   myBeamformer->myMicrophones,
+                   myBeamformer->mySphere, 
+                   GLOBAL_C, 
+                   GLOBAL_FS, 
+                   1.5);
+
+        myBeamformer->myRij = (struct objRij*) malloc(sizeof(struct objRij));
+        rijInit(myBeamformer->myRij,
+                myParameters,
+                myBeamformer->myMicrophones,
+                myBeamformer->myDelays,
+                GLOBAL_FRAMESIZE,
+                myParameters->P_BF_FILTERRANGE,
+                myParameters->P_BF_RESETRANGE);
+
+        myBeamformer->maxValues = 
+            (float*) newTable1D(myBeamformer->BF_MAXSOURCES, sizeof(float));
+        myBeamformer->maxIndexes =
+            (signed int*) newTable1D(myBeamformer->BF_MAXSOURCES, 
+                                     sizeof(signed int));
+
+    }
+}
+
 ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np):
     processed_frames_(0)
 {
@@ -176,9 +231,19 @@ void ManyEarsNode::initPipeline()
     preprocessorInit(       manyears_context_.myPreprocessor,
                             manyears_context_.myParameters,
                             manyears_context_.myMicrophones);
-    beamformerInit(         manyears_context_.myBeamformer,
+    if (planar_mode_) {
+        // In planar mode, we replace the default sphere by an arc of 180
+        // degrees on the XY plane.
+        // This is done in the replacement beamformerArcInit function.
+        // TODO: Parameters for angles, number of points.
+        beamformerArcInit(  manyears_context_.myBeamformer,
                             manyears_context_.myParameters,
                             manyears_context_.myMicrophones);
+    } else {
+        beamformerInit(     manyears_context_.myBeamformer,
+                            manyears_context_.myParameters,
+                            manyears_context_.myMicrophones);
+    }
     mixtureInit(            manyears_context_.myMixture,
                             manyears_context_.myParameters);
     gssInit(                manyears_context_.myGSS,
