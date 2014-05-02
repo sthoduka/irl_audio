@@ -104,18 +104,23 @@ include_directories(
 
 ## Declare a cpp executable
 add_executable(stream_extract src/stream_extract.cpp)
-add_executable(stream_player src/stream_player.cpp)
+add_executable(stream_player  src/stream_player.cpp)
+add_executable(upscaler       src/upscaler.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 add_dependencies(stream_extract manyears_msgs_generate_messages_cpp)
 add_dependencies(stream_player  manyears_msgs_generate_messages_cpp)
+add_dependencies(upscaler       manyears_msgs_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(stream_extract
   ${catkin_LIBRARIES}
 )
 target_link_libraries(stream_player
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(upscaler
   ${catkin_LIBRARIES}
 )
 

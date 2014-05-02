@@ -31,7 +31,7 @@ namespace {
         sphereArcInit(myBeamformer->mySphere, 
                       -90,
                       90,
-                      60);
+                      100);
 
         myBeamformer->myDelays = 
             (struct objDelays*) malloc(sizeof(struct objDelays));
@@ -77,7 +77,7 @@ ManyEarsNode::ManyEarsNode(ros::NodeHandle& n, ros::NodeHandle& np):
 
     initPipeline();
 
-    sub_audio_ = n.subscribe("audio_stream", 1000, &ManyEarsNode::audioCB, this);
+    sub_audio_ = n.subscribe("audio_stream", 10, &ManyEarsNode::audioCB, this);
 
     pub_sources_ = n.advertise<manyears_msgs::ManyEarsTrackedAudioSource>(
         "tracked_sources",
@@ -104,9 +104,10 @@ ManyEarsNode::~ManyEarsNode()
 
 bool ManyEarsNode::parseParams(const ros::NodeHandle& np)
 {
-    if (!np.hasParam("config_file")) {
-        ROS_ERROR("No 'config_file' parameter found.");
-        return false;
+    std::string config_fn;
+    np.param("config_file", config_fn, std::string(""));
+    if (config_fn == std::string("")) {
+        ROS_INFO("No config_file defined, will use default parameters.");
     } else {
         std::string config_fn;
         np.getParam("config_file", config_fn);
@@ -280,15 +281,9 @@ ros::Time ManyEarsNode::getTimeStamp() const
 
 void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
 {
-    // Fixed ManyEars input buffer size, in bytes:
+    // Fixed ManyEars input buffer size, in samples:
     const int total_samples_count = manyears_global::samples_per_frame_s *
                                     microphonesCount();
-    const int buffer_size         = total_samples_count *
-                                    sizeof(int16_t);
-
-    // An upsample test is performed later to see if it's accurate.
-    const int upsample_rate       = manyears_global::sample_rate_s /
-                                    msg->sample_rate;
 
     // NOTE: Always calculate processed time, even if frames are skipped:
     if (processed_time_.isZero()) {
@@ -323,55 +318,31 @@ void ManyEarsNode::audioCB(const rt_audio_ros::AudioStream::ConstPtr& msg)
     }
 
     if (msg->sample_rate != manyears_global::sample_rate_s) {
-        // Check if a straight upsample is possible, otherwise skip.
-        if ((manyears_global::sample_rate_s % msg->sample_rate) != 0) {
-            ROS_ERROR_THROTTLE(1.0,
-                               "Received an audio stream packet sampled at "
-                               "%i Hz, expecting %i. Packet skipped.",
-                               msg->sample_rate,
-                               manyears_global::sample_rate_s);
-            return;
-        } else {
-            ROS_WARN_ONCE("The input audio stream will be upsampled by a "
-                          "factor of %i.",
-                          upsample_rate);
-        }
-    }
-    
-    // TODO: Remove this test, accumulate buffers until the correct count is
-    // achieved and send to ManyEars.
-    if (msg->data.size() != buffer_size) {
         ROS_ERROR_THROTTLE(1.0,
-                           "Received an audio stream packet of size %i bytes, "
-                           "ManyEars expects a fixed buffer size of %i bytes. "
-                           "Packet skipped.",
-                           msg->data.size(),
-                           buffer_size);
+                           "Received an audio stream packet sampled at "
+                           "%i Hz, expecting %i. Packet skipped.",
+                           msg->sample_rate,
+                           manyears_global::sample_rate_s);
         return;
     }
-
+    
     // First, do a straight short -> float conversion.
     const int      buffer_in_size = msg->data.size() / sizeof(int16_t);
     const int16_t* buffer_in      = 
         reinterpret_cast<const int16_t*>(&(msg->data[0]));
 
-    int i = 0; // Input index.
+    int i = 0; // Input index, incremented at reading.
     while (i < buffer_in_size) {
         float v = pre_gain_ * float(buffer_in[i++]) / SHRT_MAX;
-        for (int j = 0; j < upsample_rate; ++j) {
-            buffer_flat_.push_back(v);
-            if (buffer_flat_.size() == total_samples_count) {
-                process();
-                // Clear the intermediary buffer for the next round.
-                buffer_flat_.clear();
-            }
-        }
+        buffer_flat_.push_back(v);
     }
-
+    process();
+    buffer_flat_.clear(); // Cleared for next round.
 }
 
 void ManyEarsNode::process()
 {
+    // TODO: Allocation should be done at init.
     typedef std::vector<FloatVec> MESplitBuffer; // ManyEars input buffer.
     MESplitBuffer buffer = MESplitBuffer(microphonesCount());
     for (int i = 0; i < buffer.size(); ++i) {

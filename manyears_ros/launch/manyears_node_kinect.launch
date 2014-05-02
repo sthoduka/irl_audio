@@ -5,7 +5,12 @@
             card_name:      Kinect
             sample_rate:    16000
         </rosparam>
-        <!-- <remap from="audio_stream" to="audio_stream_16k"/> -->
+        <remap from="audio_stream" to="audio_stream_16k"/>
+    </node>
+    <node name="audio_upscaler" pkg="audio_tools" type="upscaler">
+        <param name="rate" value="3"/>
+        <remap from="audio_stream"    to="audio_stream_16k"/>
+        <remap from="audio_stream_up" to="audio_stream"/>
     </node>
 
     <node name="manyears_node"
@@ -17,7 +22,7 @@
         <rosparam>
             frame_id:    micro_center_link
             planar_mode: true
-            pre_gain:    8.0
+            pre_gain:    1.0
             # Geometric configuration for a Microsoft Kinect:
             microphones:
              - {pos: {x: 0.00, y: -0.113, z: 0.00}, gain: 1.0}

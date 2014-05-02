@@ -12,8 +12,13 @@ int main(int argc, char** argv)
     // TODO: More parameters!
     
     int nb_channels = 2;
+    int sample_rate = 48000;
     if (argc >= 2) {
         nb_channels = atoi(argv[1]);
+    }
+
+    if (argc >= 3) {
+        sample_rate = atoi(argv[2]);
     }
 
     ros::NodeHandle n;
@@ -27,7 +32,7 @@ int main(int argc, char** argv)
     msg.encoding     = rt_audio_ros::AudioStream::SINT_16_PCM;
     msg.is_bigendian = false;
     msg.channels     = nb_channels;
-    msg.sample_rate  = 48000;
+    msg.sample_rate  = sample_rate;
     msg.data.resize(BUFFER_SIZE);
     unsigned char* buffer = &(msg.data[0]);
 
