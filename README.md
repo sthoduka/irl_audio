@@ -19,7 +19,7 @@ Since it uses the rt_audio_ros sub-package, your Kinect has to be configured to
 be used as a standard USB Audio Class device.
 To do so, refer to the HARK-KINECT project:
 
-http://winnie.kuis.kyoto-u.ac.jp/HARK/wiki.cgi?page=HARK-KINECT+Installation+Instructions+(as+a+USB+recording+device)
+http://www.hark.jp/wiki.cgi?page=HARK-KINECT+Installation+Instructions+%28as+a+USB+recording+device%29
 
 Then, refer to the 'manyears_node_kinect.launch' launch file in the manyears_ros
 package, which will automatically launch both rt_audio_ros for sound cature and
