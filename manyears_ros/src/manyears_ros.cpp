@@ -49,9 +49,9 @@ namespace manyears_node{
             memset(audio_raw_data_,0,manyears_global::raw_buffer_size_s * sizeof(short));
 
             //Init ROS connection and parameters
-            local_nh_.param("use_audio_stream", use_audio_stream_, false);
+            local_nh_.param("use_audio_stream", use_audio_stream_, true);
             std::string config_file;
-            local_nh_.param("config_file", config_file, std::string("../data/rect_cube.mes"));
+            local_nh_.param("config_file", config_file, std::string("/home/sabeeh/Desktop/params.mes"));
             std::string raw_file;
             local_nh_.param("raw_file", raw_file, std::string("../data/one_source.raw"));
             local_nh_.param("frame_id", frame_id_, std::string(manyears_global::microphones_frame_s));
