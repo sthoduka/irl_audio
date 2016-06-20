@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package>
+  <name>irl_audio</name>
+  <version>0.0.1</version>
+  <description>ROS metapackages for irl_audio.</description>
+  <license>GPLv3</license>
+
+  <author email="github@francoisferland.com">Francois Ferland</author>
+  <maintainer email="alexander.moriarty@h-brs.de">Alexander Moriarty</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>
