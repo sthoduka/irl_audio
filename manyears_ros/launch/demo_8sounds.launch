@@ -5,9 +5,11 @@
 		<remap from="tracked_sources" to="sources_info"/>
 		<include file="$(find manyears_ros)/launch/many_ears_8sounds.launch" />
 		<node pkg="tf" type="static_transform_publisher" name="micro_center_link_tf"
-			args="0 0.00 0.00 0 0 3.14159265359 base_link micro_center_link 1" />
+			args="0 0.00 0.00 0 0 3.14159265359 base_link micro_center_link 10" />
 		<remap from="pose_to_look" to="/track_person/face_pose" />
-		<node name="sound_pose" pkg="manyears_ros" type="position_exploitation"/>
+		<node name="sound_pose" pkg="manyears_ros" type="position_exploitation">
+            <param name="target_frame" type="str" value="odom_combined" />
+        </node>
 		
 		<node name="savestream" pkg="manyears_ros" type="manyears_savestream" output="screen" />
 			<param name="topic" type="string" value="sources_info" />
